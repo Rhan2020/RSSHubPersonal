@@ -1,7 +1,6 @@
 import { Route } from '@/types';
 import { getAllSources } from './config/sources';
 import { fetchSource } from './services/fetcher';
-import cache from '@/utils/cache';
 
 export const route: Route = {
     path: '/source-test',
@@ -24,16 +23,19 @@ export const route: Route = {
 export async function handler(ctx) {
     // 获取所有远程工作相关的数据源
     const sources = getAllSources();
-    const remoteSources = sources.filter(s => 
-        s.name.toLowerCase().includes('remote') || 
-        s.name.includes('远程') ||
-        s.name.includes('RemoteOK') ||
-        s.name.includes('We Work') ||
-        s.name.includes('FlexJobs') ||
-        s.name.includes('JustRemote') ||
-        s.name.includes('Remotive')
-    ).slice(0, 10); // 测试前10个远程源
-    
+    const remoteSources = sources
+        .filter(
+            (s) =>
+                s.name.toLowerCase().includes('remote') ||
+                s.name.includes('远程') ||
+                s.name.includes('RemoteOK') ||
+                s.name.includes('We Work') ||
+                s.name.includes('FlexJobs') ||
+                s.name.includes('JustRemote') ||
+                s.name.includes('Remotive')
+        )
+        .slice(0, 10); // 测试前10个远程源
+
     interface TestResult {
         name: string;
         url: string;
@@ -41,43 +43,45 @@ export async function handler(ctx) {
         itemCount: number;
         responseTime: string;
         error?: string;
-        sampleData: Array<{title: string; link: string}>;
+        sampleData: Array<{ title: string; link: string }>;
     }
-    
+
     const results: TestResult[] = [];
-    
+
     // 逐个测试数据源
-    for (const source of remoteSources) {
-        console.log(`正在测试: ${source.name}...`);
+    const testPromises = remoteSources.map(async (source) => {
         try {
             const startTime = Date.now();
             const items = await fetchSource(source);
             const endTime = Date.now();
-            
-            results.push({
+
+            return {
                 name: source.name,
                 url: source.url,
                 status: '✅ 成功',
                 itemCount: items.length,
                 responseTime: `${endTime - startTime}ms`,
-                sampleData: items.slice(0, 2).map(item => ({
+                sampleData: items.slice(0, 2).map((item) => ({
                     title: item.title,
-                    link: item.link
-                }))
-            });
+                    link: item.link,
+                })),
+            };
         } catch (error) {
-            results.push({
+            return {
                 name: source.name,
                 url: source.url,
                 status: '❌ 失败',
                 error: (error as Error).message,
                 itemCount: 0,
                 responseTime: 'N/A',
-                sampleData: []
-            });
+                sampleData: [],
+            };
         }
-    }
-    
+    });
+
+    const testResults = await Promise.all(testPromises);
+    results.push(...testResults);
+
     // 生成测试报告HTML
     const html = `
     <!DOCTYPE html>
@@ -102,8 +106,8 @@ export async function handler(ctx) {
                     <div class="flex justify-between items-center">
                         <h2 class="text-xl font-semibold">测试结果</h2>
                         <div class="text-sm">
-                            成功: ${results.filter(r => r.status.includes('✅')).length} | 
-                            失败: ${results.filter(r => r.status.includes('❌')).length}
+                            成功: ${results.filter((r) => r.status.includes('✅')).length} | 
+                            失败: ${results.filter((r) => r.status.includes('❌')).length}
                         </div>
                     </div>
                 </div>
@@ -120,7 +124,9 @@ export async function handler(ctx) {
                             </tr>
                         </thead>
                         <tbody>
-                            ${results.map(result => `
+                            ${results
+                                .map(
+                                    (result) => `
                                 <tr class="border-b hover:bg-gray-50">
                                     <td class="py-3 px-4">
                                         <div>
@@ -143,18 +149,28 @@ export async function handler(ctx) {
                                         ${result.responseTime}
                                     </td>
                                     <td class="py-3 px-4">
-                                        ${result.sampleData.length > 0 ? `
+                                        ${
+                                            result.sampleData.length > 0
+                                                ? `
                                             <div class="text-xs">
-                                                ${result.sampleData.map(item => `
+                                                ${result.sampleData
+                                                    .map(
+                                                        (item) => `
                                                     <div class="mb-1 truncate max-w-xs" title="${item.title}">
                                                         • ${item.title}
                                                     </div>
-                                                `).join('')}
+                                                `
+                                                    )
+                                                    .join('')}
                                             </div>
-                                        ` : '<span class="text-gray-400 text-xs">无数据</span>'}
+                                        `
+                                                : '<span class="text-gray-400 text-xs">无数据</span>'
+                                        }
                                     </td>
                                 </tr>
-                            `).join('')}
+                            `
+                                )
+                                .join('')}
                         </tbody>
                     </table>
                 </div>
@@ -164,7 +180,7 @@ export async function handler(ctx) {
                 <div class="bg-white rounded-lg shadow p-6">
                     <div class="text-sm text-gray-600 mb-2">成功率</div>
                     <div class="text-3xl font-bold text-green-600">
-                        ${Math.round(results.filter(r => r.status.includes('✅')).length / results.length * 100)}%
+                        ${Math.round((results.filter((r) => r.status.includes('✅')).length / results.length) * 100)}%
                     </div>
                 </div>
                 <div class="bg-white rounded-lg shadow p-6">
@@ -176,7 +192,11 @@ export async function handler(ctx) {
                 <div class="bg-white rounded-lg shadow p-6">
                     <div class="text-sm text-gray-600 mb-2">平均响应时间</div>
                     <div class="text-3xl font-bold text-purple-600">
-                        ${Math.round(results.filter(r => r.responseTime !== 'N/A').reduce((sum, r) => sum + parseInt(r.responseTime), 0) / results.filter(r => r.responseTime !== 'N/A').length || 0)}ms
+                        ${(() => {
+                            const validResults = results.filter((r) => r.responseTime !== 'N/A');
+                            if (validResults.length === 0) {return 0;}
+                            return Math.round(validResults.reduce((sum, r) => sum + Number.parseInt(r.responseTime), 0) / validResults.length);
+                        })()}ms
                     </div>
                 </div>
             </div>
@@ -196,7 +216,7 @@ export async function handler(ctx) {
     </body>
     </html>
     `;
-    
+
     ctx.header('Content-Type', 'text/html; charset=UTF-8');
     return ctx.body(html);
 }
