@@ -19,11 +19,11 @@ export const route: Route = {
     handler,
 };
 
-export async function handler(ctx) {
+export function handler(ctx) {
     const sources = getAllSources();
-    const jobSources = sources.filter(s => s.type === 'job').length;
-    const ideaSources = sources.filter(s => s.type === 'idea').length;
-    
+    const jobSources = sources.filter((s) => s.type === 'job').length;
+    const ideaSources = sources.filter((s) => s.type === 'idea').length;
+
     const html = `
     <!DOCTYPE html>
     <html lang="zh-CN">
@@ -202,12 +202,12 @@ export async function handler(ctx) {
 
                     <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
                         <div class="flex items-center">
-                            <i class="fas fa-bell text-gray-500 mr-3"></i>
+                            <i class="fas fa-bell text-red-500 mr-3"></i>
                             <div>
                                 <a href="/my-opportunities/alerts" class="text-gray-700 font-medium hover:text-indigo-600">
                                     /alerts
                                 </a>
-                                <p class="text-xs text-gray-500">机会提醒（开发中）</p>
+                                <p class="text-xs text-gray-500">机会提醒 - 个性化推送</p>
                             </div>
                         </div>
                     </div>
@@ -242,7 +242,7 @@ export async function handler(ctx) {
     </body>
     </html>
     `;
-    
+
     ctx.header('Content-Type', 'text/html; charset=UTF-8');
     return ctx.body(html);
 }
