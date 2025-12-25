@@ -293,7 +293,7 @@ function generateResponse(ctx: any, alerts: any, config: AlertConfig) {
 </html>`;
 
     ctx.set('Content-Type', 'text/html; charset=UTF-8');
-    return html;
+    return ctx.body(html);
 }
 
 function escapeHtml(text: string): string {
